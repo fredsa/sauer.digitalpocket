@@ -50,8 +50,6 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Failed to load: " + e, Toast.LENGTH_SHORT).show();
             Log.e(TAG, "oops", e);
           }
-          if (true)
-            return;
         }
     }
   }
