@@ -14,10 +14,12 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.provider.MediaStore;
+import android.provider.MediaStore.Images.Media;
 import android.text.format.Time;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -116,14 +118,13 @@ public class MainActivity extends Activity {
         if (resultCode == Activity.RESULT_OK) {
           ContentResolver cr = getContentResolver();
           try {
-            Bitmap bitmap = android.provider.MediaStore.Images.Media.getBitmap(cr, imageUri);
+            Bitmap bitmap = Media.getBitmap(cr, imageUri);
 
             LinearLayout mainLinearLayout = (LinearLayout) findViewById(R.id.main_linear_layout);
             ImageView imageView = new ImageView(getApplicationContext());
-            mainLinearLayout.addView(imageView);
-
             imageView.setImageBitmap(bitmap);
-
+            mainLinearLayout.addView(imageView);
+            imageView.getLayoutParams().height = 200;
             makeCurrentFilePrivate();
           } catch (Exception e) {
             throw new RuntimeException("failed to set bitmap", e);
@@ -134,6 +135,7 @@ public class MainActivity extends Activity {
 
   private void makeCurrentFilePrivate() throws IOException {
     String filename = prefs.getString(CURRENT_FILENAME, null);
+    // make file private
     openFileOutput(filename, MODE_APPEND).close();
     prefs.edit().remove(CURRENT_FILENAME).apply();
   }
