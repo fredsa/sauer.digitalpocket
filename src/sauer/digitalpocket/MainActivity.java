@@ -1,40 +1,31 @@
 package sauer.digitalpocket;
 
 import java.io.File;
-import java.io.IOException;
+import java.util.ArrayList;
 
+import sauer.digitalpocket.app.DigitalPocketApplication;
 import android.app.Activity;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.provider.MediaStore;
-import android.provider.MediaStore.Images.Media;
 import android.text.format.Time;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 public class MainActivity extends Activity {
-  /**
-   * Hold the name of the world writeable file currently being shared with camera app, so we can
-   * clean it up if something goes wrong.
-   */
-  private static final String CURRENT_FILENAME = "current-filename";
   private static final int TAKE_PICTURE = 42;
   private static final String TAG = MainActivity.class.getName();
   private Uri imageUri;
-  private SharedPreferences prefs;
   private WakeLock wakeLock;
+  private DigitalPocketApplication app;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -42,7 +33,7 @@ public class MainActivity extends Activity {
     debug("================onCreate()==============");
     setContentView(R.layout.main);
 
-    prefs = getApplicationContext().getSharedPreferences("stuff", MODE_PRIVATE);
+    app = (DigitalPocketApplication) getApplication();
 
     Button newItemButton = (Button) findViewById(R.id.net_item_button);
     newItemButton.setOnClickListener(new OnClickListener() {
@@ -59,6 +50,18 @@ public class MainActivity extends Activity {
 
     PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
     wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "DoNotDimScreen");
+
+    addImages();
+  }
+
+  private void addImages() {
+    ArrayList<String> items = app.getItems();
+    for (String item : items) {
+      File file = getFileStreamPath(item);
+      Uri uri = Uri.fromFile(file);
+      debug("uri=" + uri);
+      addImage(uri);
+    }
   }
 
   @Override
@@ -85,7 +88,7 @@ public class MainActivity extends Activity {
     time.setToNow();
     String filename = MainActivity.class.getPackage().getName() + "-"
         + time.format("%Y%m%d-%H%M%S") + ".jpg";
-    // Empty world writeable file, so camera app can write to it
+    // Empty world writable file, so camera app can write to it
     try {
       openFileOutput(filename, MODE_WORLD_WRITEABLE).close();
     } catch (Exception e) {
@@ -94,18 +97,18 @@ public class MainActivity extends Activity {
 
     File file = getFileStreamPath(filename);
     debug("file=" + file.getAbsolutePath());
-    prefs.edit().putString(CURRENT_FILENAME, filename).apply();
+    app.setCurrentFilename(filename);
 
     return Uri.fromFile(file);
   }
 
   private void cleanupWorldWriteableFile() {
-    String filename = prefs.getString(CURRENT_FILENAME, null);
+    String filename = app.getCurrentFilename(this);
     if (filename != null) {
       boolean deleted = deleteFile(filename);
       debug("Delete success?" + deleted);
       if (deleted) {
-        prefs.edit().remove(CURRENT_FILENAME).apply();
+        app.setCurrentFilename(null);
       }
     }
   }
@@ -116,28 +119,30 @@ public class MainActivity extends Activity {
     switch (requestCode) {
       case TAKE_PICTURE:
         if (resultCode == Activity.RESULT_OK) {
-          ContentResolver cr = getContentResolver();
-          try {
-            Bitmap bitmap = Media.getBitmap(cr, imageUri);
-
-            LinearLayout mainLinearLayout = (LinearLayout) findViewById(R.id.main_linear_layout);
-            ImageView imageView = new ImageView(getApplicationContext());
-            imageView.setImageBitmap(bitmap);
-            mainLinearLayout.addView(imageView);
-            imageView.getLayoutParams().height = 200;
-            makeCurrentFilePrivate();
-          } catch (Exception e) {
-            throw new RuntimeException("failed to set bitmap", e);
-          }
+          makeCurrentFilePrivate();
+          addImage(imageUri);
         }
     }
   }
 
-  private void makeCurrentFilePrivate() throws IOException {
-    String filename = prefs.getString(CURRENT_FILENAME, null);
+  private void addImage(Uri uri) {
+    LinearLayout mainLinearLayout = (LinearLayout) findViewById(R.id.main_linear_layout);
+    ImageView imageView = new ImageView(getApplicationContext());
+    imageView.setImageURI(uri);
+    mainLinearLayout.addView(imageView);
+    imageView.getLayoutParams().height = 200;
+  }
+
+  private void makeCurrentFilePrivate() {
+    String filename = app.getCurrentFilename(this);
+    app.addItem(filename);
     // make file private
-    openFileOutput(filename, MODE_APPEND).close();
-    prefs.edit().remove(CURRENT_FILENAME).apply();
+    try {
+      openFileOutput(filename, MODE_APPEND).close();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to make filename '" + filename + "' private", e);
+    }
+    app.setCurrentFilename(null);
   }
 
   private void debug(String msg) {
