@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import sauer.digitalpocket.app.DigitalPocketApplication;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -125,12 +124,24 @@ public class MainActivity extends Activity {
     }
   }
 
-  private void addImage(Uri uri) {
-    LinearLayout mainLinearLayout = (LinearLayout) findViewById(R.id.main_linear_layout);
+  private void addImage(final Uri uri) {
+    final LinearLayout mainLinearLayout = (LinearLayout) findViewById(R.id.main_linear_layout);
     ImageView imageView = new ImageView(getApplicationContext());
     imageView.setImageURI(uri);
     mainLinearLayout.addView(imageView);
     imageView.getLayoutParams().height = 200;
+
+    imageView.setOnClickListener(new OnClickListener() {
+      private Intent intent;
+
+      @Override
+      public void onClick(View view) {
+        mainLinearLayout.removeView(view);
+        intent = new Intent(MainActivity.this, ItemViewerActivity.class);
+        intent.putExtra("uri", uri.toString());
+        startActivity(intent);
+      }
+    });
   }
 
   private void makeCurrentFilePrivate() {
